@@ -224,8 +224,35 @@
 
             let firstViolation = null;
 
-            const racismKeywords = ["nigga", "нигга", "негр", "nigger", "чурка", "хач"];
-            const toxicityKeywords = ["сын шлюхи", "выблядок", "мать ебал", "мк", "сын дуры"];
+            // Словник із врахуванням англійських відповідників та трансліту
+            const racismKeywords = [
+                "nigga", "нигга", "негр", "nigger", "чурка", "хач", "хохол", "кацап", "чуркан", "ниггер",
+                "черножопый", "узкоглазый", "хачик", "жид", "свастика", "зиг", "хайль", "нацик", "чурчела",
+                "жиденыш", "укроп", "москаль", "салоед", "hohol", "kacap", "churka", "negr"
+            ];
+
+            const toxicityKeywords = [
+                "сын шлюхи", "выблядок", "мать ебал", "сын дуры", "маме привет", "мать твоя", "отчим",
+                "сын бляди", "мачеха", "ебал твою", "выродок", "ублюдок", "сдохни от рака", "желаю смерти",
+                "мать дохлая", "сирота", "гробы", "убейся", "сын ш", "сын проститутки", "шлюха мать",
+                "syn shlyuhi", "viblyadok", "mat ebal", "syn dury", "mame privet", "mat tvoya", "syn blyadi",
+                "whore", "bitch", "motherfucker", "kill yourself", "kys", "son of a bitch"
+            ];
+
+            // Функція спрощеної транслітерації для виявлення завуальованого тексту
+            const convertTranslitToСyrillic = (text) => {
+                const rules = {
+                    'shh': 'щ', 'sh': 'ш', 'ch': 'ч', 'zh': 'ж', 'yo': 'ё', 'ya': 'я', 'yu': 'ю',
+                    'a': 'а', 'b': 'б', 'v': 'в', 'g': 'г', 'd': 'д', 'e': 'е', 'z': 'з', 'i': 'и',
+                    'j': 'й', 'k': 'к', 'l': 'л', 'm': 'м', 'n': 'н', 'o': 'о', 'p': 'п', 'r': 'р',
+                    's': 'с', 't': 'т', 'u': 'у', 'f': 'ф', 'h': 'х', 'c': 'ц', 'y': 'ы'
+                };
+                let result = text;
+                for (const [eng, rus] of Object.entries(rules)) {
+                    result = result.split(eng).join(rus);
+                }
+                return result;
+            };
 
             for (const row of rows) {
                 const cells = row.querySelectorAll('td');
@@ -242,26 +269,28 @@
                     }
                     const messageText = mainTextNode ? mainTextNode.nodeValue.trim() : messageCell.innerText.trim();
                     const textLower = messageText.toLowerCase();
+                    const textCyrillicTranslit = convertTranslitToСyrillic(textLower);
 
                     if (!isMessageWithin24Hours(timeText)) continue;
 
-                    let isToxicityInstant = toxicityKeywords.some(kw => textLower.includes(kw));
-                    let isRacismWord = racismKeywords.some(kw => textLower.includes(kw));
+                    // Перевірка оригінального тексту та транслітерованого варіанту
+                    let matchedToxicity = toxicityKeywords.find(kw => textLower.includes(kw) || textCyrillicTranslit.includes(kw));
+                    let matchedRacism = racismKeywords.find(kw => textLower.includes(kw) || textCyrillicTranslit.includes(kw));
 
-                    if (isToxicityInstant) {
+                    if (matchedToxicity) {
                         counts.toxicity += 1;
                         if (!firstViolation) {
                             firstViolation = {
                                 type: "toxicity",
                                 text: messageText,
                                 time: timeText,
-                                word: toxicityKeywords.find(kw => textLower.includes(kw))
+                                word: matchedToxicity
                             };
                         }
                         continue;
                     }
 
-                    if (isRacismWord) {
+                    if (matchedRacism) {
                         counts.racism += 1;
                         if (!firstViolation || firstViolation.type !== "toxicity") {
                             if (!firstViolation || firstViolation.type !== "racism") {
@@ -269,7 +298,7 @@
                                     type: "racism",
                                     text: messageText,
                                     time: timeText,
-                                    word: racismKeywords.find(kw => textLower.includes(kw))
+                                    word: matchedRacism
                                 };
                             }
                         }
@@ -327,13 +356,13 @@
             if (counts.toxicity >= 1) {
                 finalReason = "Токсичность";
                 finalDuration = "12 часов";
-                const v = firstViolation.type === "toxicity" ? firstViolation : { word: "токсичность", text: "токсичное сообщение" };
+                const v = (firstViolation && firstViolation.type === "toxicity") ? firstViolation : { word: "токсичность", text: "токсичное сообщение" };
                 finalTrigger = v.word;
                 finalMsg = v.text;
             } else if (counts.racism >= 2) {
                 finalReason = "Расизм/дискриминация";
                 finalDuration = "3 дня";
-                const v = firstViolation.type === "racism" ? firstViolation : { word: "расизм", text: "расистское сообщение" };
+                const v = (firstViolation && firstViolation.type === "racism") ? firstViolation : { word: "расизм", text: "расистское сообщение" };
                 finalTrigger = v.word;
                 finalMsg = v.text;
             } else if (counts.heavy >= 3) {
@@ -469,12 +498,11 @@
                         el.style.gap = "6px";
                         el.style.padding = "2px 6px";
                         el.style.borderRadius = "4px";
-                        el.style.cursor = "pointer";
                         el.style.transition = "all 0.15s ease";
 
                         const checkboxBadge = document.createElement('span');
                         checkboxBadge.className = 'ip-manual-indicator';
-                        checkboxBadge.style.cssText = "display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #555555; background: transparent; transition: all 0.15s ease; flex-shrink: 0;";
+                        checkboxBadge.style.cssText = "display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #555555; background: transparent; transition: all 0.15s ease; flex-shrink: 0; cursor: pointer;";
                         el.insertBefore(checkboxBadge, el.firstChild);
 
                         const updateVisuals = () => {
@@ -497,7 +525,7 @@
                             }
                         };
 
-                        el.addEventListener('click', (e) => {
+                        checkboxBadge.addEventListener('click', (e) => {
                             e.preventDefault();
                             e.stopPropagation();
 

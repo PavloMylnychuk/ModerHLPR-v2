@@ -12,11 +12,12 @@
 
     function initExtension() {
         const templatesTicket = {
-            "Оск": "Выдал пред за оскорбление",
-            "Провокация": "Выдал пред за провокацию",
-            "Спам": "Выдал пред за спам",
-            "Расизм": "Выдал пред за расизм",
-            "Препятствие": "Выдал пред за препятствие"
+            "Оск": "Выдан пред за оскорбление.",
+            "Провокация": "Выдан пред за провокацию.",
+            "Спам": "Выдан пред за спам.",
+            "Расизм": "Выдан пред за расизм.",
+            "Препятствие": "Выдан пред за препятствие.",
+            "Обход чист": "Обход чист."
         };
 
         const templatesNotif = {
@@ -203,7 +204,7 @@
             const chatHistoryBlock = Array.from(document.querySelectorAll('div, .card, .block')).find(el => el.innerText && el.innerText.includes('История Чата') && !el.innerText.includes('История Тикетов'));
 
             if (!chatHistoryBlock) {
-                updateInfoBadge('helper-suggest-badge', 'background: #1e293b; border-left: 4px solid #64748b; color: #cbd5e1;', '🔍 <b>Анализ чата:</b> Таблица истории чата не найдена на текущей странице.', textarea);
+                updateInfoBadge('helper-suggest-badge', 'background: #1e293b; border-left: 4px solid #64748b; color: #cbd5e1;', '🔍 <b>Анализ чата:</b> Table of chat history not found on the current page.', textarea);
                 return;
             }
 
@@ -224,7 +225,6 @@
 
             let firstViolation = null;
 
-            // Словник із врахуванням англійських відповідників та трансліту
             const racismKeywords = [
                 "nigga", "нигга", "негр", "nigger", "чурка", "хач", "хохол", "кацап", "чуркан", "ниггер",
                 "черножопый", "узкоглазый", "хачик", "жид", "свастика", "зиг", "хайль", "нацик", "чурчела",
@@ -239,7 +239,6 @@
                 "whore", "bitch", "motherfucker", "kill yourself", "kys", "son of a bitch"
             ];
 
-            // Функція спрощеної транслітерації для виявлення завуальованого тексту
             const convertTranslitToСyrillic = (text) => {
                 const rules = {
                     'shh': 'щ', 'sh': 'ш', 'ch': 'ч', 'zh': 'ж', 'yo': 'ё', 'ya': 'я', 'yu': 'ю',
@@ -273,7 +272,6 @@
 
                     if (!isMessageWithin24Hours(timeText)) continue;
 
-                    // Перевірка оригінального тексту та транслітерованого варіанту
                     let matchedToxicity = toxicityKeywords.find(kw => textLower.includes(kw) || textCyrillicTranslit.includes(kw));
                     let matchedRacism = racismKeywords.find(kw => textLower.includes(kw) || textCyrillicTranslit.includes(kw));
 
@@ -404,7 +402,6 @@
                 submitButton.onclick = function () { dupCheck.register(); };
             }
         }
-
         function createPanel(templates, target, panelId) {
             const panel = document.createElement('div');
             panel.id = panelId;
@@ -415,7 +412,17 @@
                 btn.style.cssText = "background: #3bb54a; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 12px;";
                 btn.onclick = (e) => {
                     e.preventDefault();
-                    target.value = text;
+
+                    const currentText = target.value.trim();
+                    if (currentText === "") {
+                        target.value = text;
+                    } else {
+                        // Якщо такий шаблон вже є у полі, не дублюємо його підряд
+                        if (!currentText.includes(text)) {
+                            target.value = currentText + " " + text;
+                        }
+                    }
+
                     target.dispatchEvent(new Event('input', { bubbles: true }));
                 };
                 panel.appendChild(btn);

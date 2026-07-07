@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Cybershoke Mod Helper by fLYR-",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "description": "Script for Optimizing the Moderation Interface",
   "permissions": [ "storage", "activeTab" ],
   "icons": {

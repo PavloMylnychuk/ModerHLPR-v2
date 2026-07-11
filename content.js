@@ -12,11 +12,11 @@
 
     function initExtension() {
         const templatesTicket = {
-            "Оск": "Выдан пред за оскорбление.",
-            "Провокация": "Выдан пред за провокацию.",
-            "Спам": "Выдан пред за спам.",
-            "Расизм": "Выдан пред за расизм.",
-            "Препятствие": "Выдан пред за препятствие.",
+            "Оск": "Выдан пред за оскорбление",
+            "Провокация": "Выдан пред за провокацию",
+            "Спам": "Выдан пред за спам",
+            "Расизм": "Выдан пред за расизм",
+            "Препятствие": "Выдан пред за препятствие",
             "Обход чист": "Обход чист."
         };
 
@@ -402,22 +402,23 @@
                 submitButton.onclick = function () { dupCheck.register(); };
             }
         }
+
         function createPanel(templates, target, panelId) {
             const panel = document.createElement('div');
             panel.id = panelId;
-            panel.style.cssText = "display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; z-index: 9999;";
+            panel.style.cssText = "display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; z-index: 9999; align-items: center;";
+            
             Object.entries(templates).forEach(([name, text]) => {
                 const btn = document.createElement('button');
                 btn.innerText = name;
                 btn.style.cssText = "background: #3bb54a; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 12px;";
                 btn.onclick = (e) => {
                     e.preventDefault();
-
+                    
                     const currentText = target.value.trim();
                     if (currentText === "") {
                         target.value = text;
                     } else {
-                        // Якщо такий шаблон вже є у полі, не дублюємо його підряд
                         if (!currentText.includes(text)) {
                             target.value = currentText + " " + text;
                         }
@@ -427,6 +428,63 @@
                 };
                 panel.appendChild(btn);
             });
+
+            if (panelId === 'mod-ticket-panel') {
+                const copyBtn = document.createElement('button');
+                copyBtn.innerText = "📋 Копировать ник";
+                copyBtn.style.cssText = "background: #475569; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 12px; margin-left: auto; font-weight: bold;";
+                copyBtn.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    let nickname = "";
+
+                    const violatorLabel = Array.from(document.querySelectorAll('span, div, td'))
+                        .find(el => el.innerText && el.innerText.trim() === 'Нарушитель');
+
+                    if (violatorLabel) {
+                        const parent = violatorLabel.parentElement;
+                        const playerCard = parent ? parent.querySelector('[data-player-card="true"]') : null;
+                        if (playerCard) {
+                            const nameSpan = playerCard.querySelector('button span, span');
+                            if (nameSpan) {
+                                nickname = nameSpan.innerText.trim();
+                            }
+                        }
+                    }
+
+                    if (!nickname) {
+                        const suspectBlock = document.querySelector('.player-nickname') || document.querySelector('.ticket-suspect');
+                        if (suspectBlock) {
+                            nickname = suspectBlock.innerText.replace(/Тикет|Нарушитель|Подозреваемый/gi, '').replace(/#\d+/g, '').trim();
+                        }
+                    }
+
+                    if (nickname) {
+                        const el = document.createElement('textarea');
+                        el.value = nickname;
+                        el.style.position = 'absolute';
+                        el.style.left = '-9999px';
+                        document.body.appendChild(el);
+                        el.select();
+                        try {
+                            document.execCommand('copy');
+                            const originalText = copyBtn.innerText;
+                            copyBtn.innerText = `✅ ${nickname}`;
+                            copyBtn.style.background = "#16a34a";
+                            setTimeout(() => {
+                                copyBtn.innerText = originalText;
+                                copyBtn.style.background = "#475569";
+                            }, 1500);
+                        } catch (err) {
+                            console.error('Не вдалося скопіювати:', err);
+                        }
+                        document.body.removeChild(el);
+                    }
+                };
+                panel.appendChild(copyBtn);
+            }
+
             return panel;
         }
 
@@ -559,24 +617,6 @@
                 }
             }
 
-            document.querySelectorAll('button').forEach(btn => {
-                if (btn.innerText && btn.innerText.includes('Принять тикет') && !btn.dataset.copyProcessed) {
-                    btn.addEventListener('click', () => {
-                        const row = btn.closest('tr');
-                        if (row) {
-                            const violatorCell = row.querySelector('td:nth-child(4)');
-                            if (violatorCell) {
-                                const nickname = violatorCell.innerText.split('\n')[0].trim();
-                                navigator.clipboard.writeText(nickname).catch(err => {
-                                    console.error('Ошибка копирования никнейма:', err);
-                                });
-                            }
-                        }
-                    });
-                    btn.dataset.copyProcessed = "true";
-                }
-            });
-
             if (observer) {
                 observer.observe(document.documentElement, { childList: true, subtree: true });
             }
@@ -591,11 +631,9 @@
                     }
                 }
             });
-        }, 30000);
+        }, 15000);
 
         observer = new MutationObserver(runDOMUpdates);
         observer.observe(document.documentElement, { childList: true, subtree: true });
-
-        runDOMUpdates();
     }
 })();

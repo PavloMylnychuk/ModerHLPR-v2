@@ -5,12 +5,12 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.local.get(['scriptEnabled'], (result) => {
         const isEnabled = result.scriptEnabled !== false;
         checkbox.checked = isEnabled;
-        label.innerText = isEnabled ? "Enable" : "Disable";
+        label.innerText = isEnabled ? "ACTIVE" : "DISABLED";
     });
 
     checkbox.addEventListener('change', () => {
         const isEnabled = checkbox.checked;
-        label.innerText = isEnabled ? "Enable" : "Disable";
+        label.innerText = isEnabled ? "ACTIVE" : "DISABLED";
 
         chrome.storage.local.set({ scriptEnabled: isEnabled }, () => {
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

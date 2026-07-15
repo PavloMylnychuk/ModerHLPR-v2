@@ -12,21 +12,23 @@
 
     function initExtension() {
         const templatesTicket = {
-            "Оск": "Выдан пред за оскорбление",
-            "Провокация": "Выдан пред за провокацию",
-            "Спам": "Выдан пред за спам",
-            "Расизм": "Выдан пред за расизм",
-            "Препятствие": "Выдан пред за препятствие",
+            "Оск": "Выдан пред за оскорбление.",
+            "Провокация": "Выдан пред за провокацию.",
+            "Препятствие": "Выдан пред за препятствие.",
+            "Спам": "Выдан пред за спам.",
+            "Мониторинг": "Выдан пред за мониторинг.",
+            "Расизм": "Выдан пред за расизм.",
             "Обход чист": "Обход чист."
         };
 
         const templatesNotif = {
             "Оск": "Здравствуйте! Пожалуйста, перестаньте оскорблять игроков.",
             "Провокация": "Здравствуйте! Просим вас не провоцировать других участников.",
-            "Спам": "Здравствуйте! Пожалуйста, не спамьте в чат.",
-            "Расизм": "Здравствуйте! На проекта запрещен расизм. Просим прекратить.",
             "Препятствие": "Здравствуйте! Не препятствуйте нормальной игре другим.",
-            "Ник": "Ваш ник некорректный. Пожалуйста, измените его."
+            "Спам": "Здравствуйте! Пожалуйста, не спамьте в чат.",
+            "Ник": "Ваш ник некорректный. Пожалуйста, измените его.",
+            "Мониторинг": "Здравствуйте! Пожалуйста, прекратите мониторинг.",
+            "Расизм": "Здравствуйте! На проекте запрещен расизм. Просим прекратить."
         };
 
         const ipRegex = /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b/;
@@ -169,7 +171,7 @@
                         translateText(messageText, 'RU').then(res => {
                             if (res && res.detectedLang !== 'ru' && res.detectedLang !== 'uk') {
                                 const trDiv = document.createElement('div');
-                                trDiv.style.cssText = "font-size: 11px; color: #3bb54a; margin-top: 2px; font-style: italic; border-top: 1px dashed rgba(59,181,74,0.2); padding-top: 2px;";
+                                trDiv.style.cssText = "font-size: 11px; color: #64748b; margin-top: 2px; font-style: italic; border-top: 1px dashed rgba(100,116,139,0.2); padding-top: 2px;";
                                 trDiv.innerHTML = `🌐 [${res.detectedLang.toUpperCase()}] Перевод: ${res.translated}`;
                                 messageCell.appendChild(trDiv);
                             }
@@ -395,7 +397,7 @@
                 return;
             }
 
-            updateInfoBadge('helper-suggest-badge', 'background: #141726; border-left: 4px solid #3bb54a; color: #ffffff;', `💡 <b>Рекомендуемое наказание:</b> Нарушены условия выдачи мута.<br>Обнаружен триггер <u>${finalTrigger}</u> в сообщении "${finalMsg}".<br>Причина: <b>${finalReason}</b><br>Рекомендуется выдать: <b>Чат + Микрофон</b> на <b>${finalDuration}</b>.`, textarea);
+            updateInfoBadge('helper-suggest-badge', 'background: #141726; border-left: 4px solid #64748b; color: #ffffff;', `💡 <b>Рекомендуемое наказание:</b> Нарушены условия выдачи мута.<br>Обнаружен триггер <u>${finalTrigger}</u> в сообщении "${finalMsg}".<br>Причина: <b>${finalReason}</b><br>Рекомендуется выдать: <b>Чат + Микрофон</b> на <b>${finalDuration}</b>.`, textarea);
 
             const submitButton = document.querySelector('button[type="submit"]') || document.querySelector('.js-submit-punishment');
             if (submitButton) {
@@ -411,7 +413,7 @@
             Object.entries(templates).forEach(([name, text]) => {
                 const btn = document.createElement('button');
                 btn.innerText = name;
-                btn.style.cssText = "background: #3bb54a; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 12px;";
+                btn.style.cssText = "background: #64748b; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 12px;";
                 btn.onclick = (e) => {
                     e.preventDefault();
                     
@@ -558,12 +560,12 @@
                         const rawIp = ipMatch[0];
                         el.dataset.ipWrapperSetup = "true";
 
-                        el.style.display = "inline-flex";
-                        el.style.alignItems = "center";
-                        el.style.gap = "6px";
-                        el.style.padding = "2px 6px";
-                        el.style.borderRadius = "4px";
-                        el.style.transition = "all 0.15s ease";
+                        el.style.setProperty("display", "inline-flex", "important");
+                        el.style.setProperty("align-items", "center", "important");
+                        el.style.setProperty("gap", "6px", "important");
+                        el.style.setProperty("padding", "2px 6px", "important");
+                        el.style.setProperty("border-radius", "4px", "important");
+                        el.style.setProperty("transition", "all 0.15s ease", "important");
 
                         const checkboxBadge = document.createElement('span');
                         checkboxBadge.className = 'ip-manual-indicator';
@@ -573,20 +575,20 @@
                         const updateVisuals = () => {
                             const currentStatus = getStoredIPStatus(rawIp);
                             if (currentStatus === 'working') {
-                                el.style.backgroundColor = "rgba(59, 181, 74, 0.15)";
-                                el.style.color = "#3bb54a";
-                                checkboxBadge.style.borderColor = "#3bb54a";
-                                checkboxBadge.style.backgroundColor = "#3bb54a";
+                                el.style.setProperty("background-color", "rgba(34, 197, 94, 0.15)", "important");
+                                el.style.setProperty("color", "#22c55e", "important");
+                                checkboxBadge.style.setProperty("border-color", "#22c55e", "important");
+                                checkboxBadge.style.setProperty("background-color", "#22c55e", "important");
                             } else if (currentStatus === 'broken') {
-                                el.style.backgroundColor = "rgba(255, 77, 77, 0.15)";
-                                el.style.color = "#ff4d4d";
-                                checkboxBadge.style.borderColor = "#ff4d4d";
-                                checkboxBadge.style.backgroundColor = "#ff4d4d";
+                                el.style.setProperty("background-color", "rgba(239, 68, 68, 0.15)", "important");
+                                el.style.setProperty("color", "#ef4444", "important");
+                                checkboxBadge.style.setProperty("border-color", "#ef4444", "important");
+                                checkboxBadge.style.setProperty("background-color", "#ef4444", "important");
                             } else {
-                                el.style.backgroundColor = "transparent";
-                                el.style.color = "inherit";
-                                checkboxBadge.style.borderColor = "#555555";
-                                checkboxBadge.style.backgroundColor = "transparent";
+                                el.style.removeProperty("background-color");
+                                el.style.removeProperty("color");
+                                checkboxBadge.style.setProperty("border-color", "#555555", "important");
+                                checkboxBadge.style.setProperty("background-color", "transparent", "important");
                             }
                         };
 
@@ -625,15 +627,16 @@
         setInterval(() => {
             document.querySelectorAll('button').forEach(btn => {
                 if (btn.innerText && btn.innerText.includes('Обновить')) {
-                    const parentText = btn.parentElement ? btn.parentElement.innerText : '';
-                    if (parentText.includes('Текущий сервер') || parentText.includes('Онлайн') || parentText.includes('История Чат')) {
-                        btn.click();
-                    }
+                    btn.addEventListener('click', () => {
+                        setTimeout(runDOMUpdates, 500);
+                    });
                 }
             });
-        }, 15000);
+        }, 1000);
 
-        observer = new MutationObserver(runDOMUpdates);
-        observer.observe(document.documentElement, { childList: true, subtree: true });
+        observer = new MutationObserver(() => {
+            runDOMUpdates();
+        });
+        runDOMUpdates();
     }
 })();

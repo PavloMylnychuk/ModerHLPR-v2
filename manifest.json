@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Cybershoke Mod Helper by fLYR-",
-  "version": "1.4.9",
+  "version": "1.5.0",
   "description": "Script for Optimizing the Moderation Interface",
   "permissions": [ "storage", "activeTab" ],
   "icons": {
@@ -16,6 +16,16 @@
       "matches": [ "*://*.cybershoke.net/*" ],
       "js": [ "content.js" ],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/logo_full_default.svg"
+      ],
+      "matches": [
+        "*://*.cybershoke.net/*"
+      ]
     }
   ]
 }

@@ -2,6 +2,8 @@
     'use strict';
 
     let observer = null;
+    let autoRefreshTimer = null;
+    const REFRESH_INTERVAL = 15000;
 
     chrome.storage.local.get(['scriptEnabled'], (result) => {
         const isEnabled = result.scriptEnabled !== false;
@@ -16,6 +18,7 @@
             "Провокация": "Выдан пред за провокацию.",
             "Препятствие": "Выдан пред за препятствие.",
             "Спам": "Выдан пред за спам.",
+            "Ник": "Выдан пред за некорректный ник.",
             "Мониторинг": "Выдан пред за мониторинг.",
             "Расизм": "Выдан пред за расизм.",
             "Обход чист": "Обход чист."
@@ -30,6 +33,41 @@
             "Мониторинг": "Здравствуйте! Пожалуйста, прекратите мониторинг.",
             "Расизм": "Здравствуйте! На проекте запрещен расизм. Просим прекратить."
         };
+
+        function startAutoRefreshTimer() {
+            if (autoRefreshTimer) {
+                clearInterval(autoRefreshTimer);
+            }
+            autoRefreshTimer = setInterval(() => {
+                refreshCurrentServer();
+            }, REFRESH_INTERVAL);
+        }
+
+        function refreshCurrentServer() {
+            const refreshButtons = document.querySelectorAll('button');
+            for (let btn of refreshButtons) {
+                if (btn.innerText && btn.innerText.includes('Текущий сервер') && btn.innerText.includes('Обновить')) {
+                    btn.click();
+                    break;
+                }
+            }
+        }
+
+        function onTakeTicketOrReport() {
+            startAutoRefreshTimer();
+        }
+
+        document.addEventListener('click', (event) => {
+            const target = event.target;
+            if (target.closest('button') || target.closest('a')) {
+                const text = target.innerText || "";
+                if (text.includes('Взять') || text.includes('Принять') || target.className.includes('take-ticket')) {
+                    onTakeTicketOrReport();
+                }
+            }
+        });
+
+        startAutoRefreshTimer();
 
         const ipRegex = /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b/;
 
@@ -626,7 +664,7 @@
 
         setInterval(() => {
             document.querySelectorAll('button').forEach(btn => {
-                if (btn.innerText && btn.innerText.includes('Обновить')) {
+                if (btn.innerText && btn.innerText.includes('Обновить') && !btn.innerText.includes('Текущий сервер')) {
                     btn.addEventListener('click', () => {
                         setTimeout(runDOMUpdates, 500);
                     });

@@ -1,9 +1,11 @@
 (function () {
     'use strict';
 
+    //ГЛОБАЛЬНЫЕ НАСТРОЙКИ И ПЕРЕМЕННЫЕ
     let observer = null;
     let autoRefreshTimer = null;
     const REFRESH_INTERVAL = 15000;
+    const ipRegex = /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b/;
 
     chrome.storage.local.get(['scriptEnabled'], (result) => {
         const isEnabled = result.scriptEnabled !== false;
@@ -13,26 +15,41 @@
     });
 
     function initExtension() {
+
         const templatesTicket = {
-            "Оск": "Выдан пред за оскорбление.",
-            "Провокация": "Выдан пред за провокацию.",
-            "Препятствие": "Выдан пред за препятствие.",
-            "Спам": "Выдан пред за спам.",
-            "Ник": "Выдан пред за некорректный ник.",
-            "Мониторинг": "Выдан пред за мониторинг.",
-            "Расизм": "Выдан пред за расизм.",
+            "Оск": "Выдано предупреждение за оскорбление.",
+            "Провокация / Троллинг": "Выдано предупреждение за провокацию / троллинг.",
+            "Препятствие": "Выдано предупреждение за препятствие.",
+            "Спам": "Выдано предупреждение за спам.",
+            "Ник": "Выдано предупреждение за некорректный ник.",
+            "Мониторинг": "Выдано предупреждение за мониторинг.",
+            "Расизм": "Выдано предупреждение за расизм.",
             "Обход чист": "Обход чист."
         };
 
         const templatesNotif = {
             "Оск": "Здравствуйте! Пожалуйста, перестаньте оскорблять игроков.",
-            "Провокация": "Здравствуйте! Просим вас не провоцировать других участников.",
+            "Провокация / Троллинг": "Здравствуйте! Просим вас не провоцировать и не троллить других участников.",
             "Препятствие": "Здравствуйте! Не препятствуйте нормальной игре другим.",
             "Спам": "Здравствуйте! Пожалуйста, не спамьте в чат.",
             "Ник": "Ваш ник некорректный. Пожалуйста, измените его.",
             "Мониторинг": "Здравствуйте! Пожалуйста, прекратите мониторинг.",
             "Расизм": "Здравствуйте! На проекте запрещен расизм. Просим прекратить."
         };
+
+        function safeGetClassName(element) {
+            if (!element || !element.className) return "";
+            if (typeof element.className === 'string') {
+                return element.className;
+            }
+            if (typeof element.className === 'object' && element.className.baseVal !== undefined) {
+                return element.className.baseVal;
+            }
+            return "";
+        }
+
+
+        //АВТООБНОВЛЕНИЕ ТЕКУЩЕГО СЕРВЕРА И ТАЙМЕРЫ
 
         function startAutoRefreshTimer() {
             if (autoRefreshTimer) {
@@ -44,12 +61,49 @@
         }
 
         function refreshCurrentServer() {
-            const refreshButtons = document.querySelectorAll('button');
-            for (let btn of refreshButtons) {
-                if (btn.innerText && btn.innerText.includes('Текущий сервер') && btn.innerText.includes('Обновить')) {
-                    btn.click();
+            console.log("Спроба автооновлення поточного сервера...");
+
+            let refreshBtn = null;
+
+            const headers = document.querySelectorAll('h3');
+            let currentServerHeader = null;
+            for (let h3 of headers) {
+                if (h3.innerText && h3.innerText.includes('Текущий сервер')) {
+                    currentServerHeader = h3;
                     break;
                 }
+            }
+
+            if (currentServerHeader) {
+                const parentContainer = currentServerHeader.closest('div');
+                if (parentContainer) {
+                    const buttons = parentContainer.querySelectorAll('button');
+                    for (let btn of buttons) {
+                        if (btn.innerText && btn.innerText.includes('Обновить')) {
+                            refreshBtn = btn;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (refreshBtn) {
+                if (refreshBtn.hasAttribute('disabled')) {
+                    console.log("Кнопка обновления найдена, но сейчас она неактивна (disabled).");
+                    return;
+                }
+
+                const clickEvent = new MouseEvent('click', {
+                    view: window,
+                    bubbles: true,
+                    cancelable: true
+                });
+                
+                clickEvent.__isAutoRefresh = true;
+                refreshBtn.dispatchEvent(clickEvent);
+                console.log("Кнопку оновлення поточного сервера успішно активовано.");
+            } else {
+                console.log("Кнопку оновлення сервера не знайдено на сторінці.");
             }
         }
 
@@ -57,20 +111,9 @@
             startAutoRefreshTimer();
         }
 
-        document.addEventListener('click', (event) => {
-            const target = event.target;
-            if (target.closest('button') || target.closest('a')) {
-                const text = target.innerText || "";
-                if (text.includes('Взять') || text.includes('Принять') || target.className.includes('take-ticket')) {
-                    onTakeTicketOrReport();
-                }
-            }
-        });
 
-        startAutoRefreshTimer();
-
-        const ipRegex = /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b/;
-
+        //РАБОТА С IP АДРЕСАМИ (Хранилище и Логика)
+        
         function getStoredIPStatus(ip) {
             return localStorage.getItem(`ip_status_${ip}`);
         }
@@ -83,6 +126,9 @@
             }
         }
 
+
+        //УТИЛИТЫ И ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+        
         function isMessageWithin24Hours(messageTimestampText) {
             if (!messageTimestampText) return true;
             try {
@@ -187,56 +233,9 @@
             }
         }
 
-        const intersectionObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const messageCell = entry.target;
-                    intersectionObserver.unobserve(messageCell);
 
-                    let mainTextNode = null;
-                    for (let node of messageCell.childNodes) {
-                        if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim().length > 0) {
-                            mainTextNode = node;
-                            break;
-                        }
-                    }
-
-                    const messageText = mainTextNode ? mainTextNode.nodeValue.trim() : messageCell.innerText.trim();
-
-                    if (!messageCell.dataset.translatedProcessed && messageText.length > 0) {
-                        messageCell.dataset.translatedProcessed = "true";
-
-                        translateText(messageText, 'RU').then(res => {
-                            if (res && res.detectedLang !== 'ru' && res.detectedLang !== 'uk') {
-                                const trDiv = document.createElement('div');
-                                trDiv.style.cssText = "font-size: 11px; color: #64748b; margin-top: 2px; font-style: italic; border-top: 1px dashed rgba(100,116,139,0.2); padding-top: 2px;";
-                                trDiv.innerHTML = `🌐 [${res.detectedLang.toUpperCase()}] Перевод: ${res.translated}`;
-                                messageCell.appendChild(trDiv);
-                            }
-                        });
-                    }
-                }
-            });
-        }, { rootMargin: '100px 0px 100px 0px' });
-
-        function runChatTranslation() {
-            const chatHistoryBlock = Array.from(document.querySelectorAll('div, .card, .block')).find(el => el.innerText && el.innerText.includes('История Чата') && !el.innerText.includes('История Тикетов'));
-            if (!chatHistoryBlock) return;
-
-            const rows = Array.from(chatHistoryBlock.querySelectorAll('tbody tr, tr')).filter(row => row.querySelector('td'));
-
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                if (cells.length >= 4) {
-                    const messageCell = cells[3];
-                    if (!messageCell.dataset.translatedProcessed && !messageCell.dataset.observed) {
-                        messageCell.dataset.observed = "true";
-                        intersectionObserver.observe(messageCell);
-                    }
-                }
-            });
-        }
-
+        //АНАЛИЗ ЧАТА, СИСТЕМА ТРИГГЕРОВ И НАКАЗАНИЙ
+        
         async function processTicketRules(textarea) {
             const steamBlock = document.querySelector('.player-steamid') || document.querySelector('[data-steamid]');
             const steamId = steamBlock ? (steamBlock.dataset.steamid || steamBlock.innerText.trim()) : "unknown_user";
@@ -244,7 +243,7 @@
             const chatHistoryBlock = Array.from(document.querySelectorAll('div, .card, .block')).find(el => el.innerText && el.innerText.includes('История Чата') && !el.innerText.includes('История Тикетов'));
 
             if (!chatHistoryBlock) {
-                updateInfoBadge('helper-suggest-badge', 'background: #1e293b; border-left: 4px solid #64748b; color: #cbd5e1;', '🔍 <b>Анализ чата:</b> Table of chat history not found on the current page.', textarea);
+                updateInfoBadge('helper-suggest-badge', 'background: #1e293b; border-left: 4px solid #64748b; color: #cbd5e1;', '🔍 <b>Анализ чата:</b> Таблица истории чата не найдена на текущей странице.', textarea);
                 return;
             }
 
@@ -255,14 +254,7 @@
                 return;
             }
 
-            let counts = {
-                heavy: 0,
-                medium: 0,
-                light: 0,
-                racism: 0,
-                toxicity: 0
-            };
-
+            let counts = { heavy: 0, medium: 0, light: 0, racism: 0, toxicity: 0 };
             let firstViolation = null;
 
             const racismKeywords = [
@@ -318,12 +310,7 @@
                     if (matchedToxicity) {
                         counts.toxicity += 1;
                         if (!firstViolation) {
-                            firstViolation = {
-                                type: "toxicity",
-                                text: messageText,
-                                time: timeText,
-                                word: matchedToxicity
-                            };
+                            firstViolation = { type: "toxicity", text: messageText, time: timeText, word: matchedToxicity };
                         }
                         continue;
                     }
@@ -332,12 +319,7 @@
                         counts.racism += 1;
                         if (!firstViolation || firstViolation.type !== "toxicity") {
                             if (!firstViolation || firstViolation.type !== "racism") {
-                                firstViolation = {
-                                    type: "racism",
-                                    text: messageText,
-                                    time: timeText,
-                                    word: matchedRacism
-                                };
+                                firstViolation = { type: "racism", text: messageText, time: timeText, word: matchedRacism };
                             }
                         }
                     }
@@ -349,16 +331,16 @@
                     for (const el of highlightedElements) {
                         const style = window.getComputedStyle(el);
                         const bg = style.backgroundColor;
-                        const className = el.className ? el.className.toLowerCase() : "";
+                        const classNameStr = safeGetClassName(el).toLowerCase();
 
                         if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' && !bg.includes('rgba(0, 0, 0, 0)')) {
                             siteHighlightedWord = el.innerText.trim();
 
-                            if (bg.includes('239, 68, 68') || bg.includes('255, 77, 77') || className.includes('danger') || className.includes('heavy') || className.includes('red')) {
+                            if (bg.includes('239, 68, 68') || bg.includes('255, 77, 77') || classNameStr.includes('danger') || classNameStr.includes('heavy') || classNameStr.includes('red')) {
                                 detectedColorType = "heavy";
-                            } else if (bg.includes('245, 158, 11') || bg.includes('255, 204, 0') || className.includes('warning') || className.includes('medium') || className.includes('yellow') || className.includes('orange')) {
+                            } else if (bg.includes('245, 158, 11') || bg.includes('255, 204, 0') || classNameStr.includes('warning') || classNameStr.includes('medium') || classNameStr.includes('yellow') || classNameStr.includes('orange')) {
                                 detectedColorType = "medium";
-                            } else if (bg.includes('59, 130, 246') || className.includes('info') || className.includes('light') || className.includes('blue')) {
+                            } else if (bg.includes('59, 130, 246') || classNameStr.includes('info') || classNameStr.includes('light') || classNameStr.includes('blue')) {
                                 detectedColorType = "light";
                             }
                             break;
@@ -368,19 +350,13 @@
                     if (siteHighlightedWord) {
                         if (detectedColorType === "heavy") {
                             counts.heavy += 1;
-                            if (!firstViolation) {
-                                firstViolation = { type: "heavy", text: messageText, time: timeText, word: siteHighlightedWord };
-                            }
+                            if (!firstViolation) { firstViolation = { type: "heavy", text: messageText, time: timeText, word: siteHighlightedWord }; }
                         } else if (detectedColorType === "medium") {
                             counts.medium += 1;
-                            if (!firstViolation) {
-                                firstViolation = { type: "medium", text: messageText, time: timeText, word: siteHighlightedWord };
-                            }
+                            if (!firstViolation) { firstViolation = { type: "medium", text: messageText, time: timeText, word: siteHighlightedWord }; }
                         } else if (detectedColorType === "light") {
                             counts.light += 1;
-                            if (!firstViolation) {
-                                firstViolation = { type: "light", text: messageText, time: timeText, word: siteHighlightedWord };
-                            }
+                            if (!firstViolation) { firstViolation = { type: "light", text: messageText, time: timeText, word: siteHighlightedWord }; }
                         }
                     }
                 }
@@ -395,29 +371,21 @@
                 finalReason = "Токсичность";
                 finalDuration = "12 часов";
                 const v = (firstViolation && firstViolation.type === "toxicity") ? firstViolation : { word: "токсичность", text: "токсичное сообщение" };
-                finalTrigger = v.word;
-                finalMsg = v.text;
+                finalTrigger = v.word; finalMsg = v.text;
             } else if (counts.racism >= 2) {
                 finalReason = "Расизм/дискриминация";
                 finalDuration = "3 дня";
                 const v = (firstViolation && firstViolation.type === "racism") ? firstViolation : { word: "расизм", text: "расистское сообщение" };
-                finalTrigger = v.word;
-                finalMsg = v.text;
+                finalTrigger = v.word; finalMsg = v.text;
             } else if (counts.heavy >= 3) {
-                finalReason = "Расизм/дискриминация";
-                finalDuration = "3 дня";
-                finalTrigger = firstViolation ? firstViolation.word : "триггер";
-                finalMsg = firstViolation ? firstViolation.text : "";
+                finalReason = "Расизм/дискпиминация"; finalDuration = "3 дня";
+                finalTrigger = firstViolation ? firstViolation.word : "триггер"; finalMsg = firstViolation ? firstViolation.text : "";
             } else if (counts.medium >= 3) {
-                finalReason = "Оскорбление";
-                finalDuration = "6 часов";
-                finalTrigger = firstViolation ? firstViolation.word : "триггер";
-                finalMsg = firstViolation ? firstViolation.text : "";
+                finalReason = "Оскорбление"; finalDuration = "6 часов";
+                finalTrigger = firstViolation ? firstViolation.word : "триггер"; finalMsg = firstViolation ? firstViolation.text : "";
             } else if (counts.light >= 3) {
-                finalReason = "Спам в микрофон/чат";
-                finalDuration = "6 часов";
-                finalTrigger = firstViolation ? firstViolation.word : "триггер";
-                finalMsg = firstViolation ? firstViolation.text : "";
+                finalReason = "Спам в микрофон/чат"; finalDuration = "6 часов";
+                finalTrigger = firstViolation ? firstViolation.word : "триггер"; finalMsg = firstViolation ? firstViolation.text : "";
             }
 
             if (!finalReason) {
@@ -443,6 +411,59 @@
             }
         }
 
+
+        //ИНТЕРФЕЙСНЫЕ КОМПОНЕНТЫ И ПАНЕЛИ ШАБЛОНОВ
+        
+        const intersectionObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const messageCell = entry.target;
+                    intersectionObserver.unobserve(messageCell);
+
+                    let mainTextNode = null;
+                    for (let node of messageCell.childNodes) {
+                        if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim().length > 0) {
+                            mainTextNode = node;
+                            break;
+                        }
+                    }
+
+                    const messageText = mainTextNode ? mainTextNode.nodeValue.trim() : messageCell.innerText.trim();
+
+                    if (!messageCell.dataset.translatedProcessed && messageText.length > 0) {
+                        messageCell.dataset.translatedProcessed = "true";
+
+                        translateText(messageText, 'RU').then(res => {
+                            if (res && res.detectedLang !== 'ru' && res.detectedLang !== 'uk') {
+                                const trDiv = document.createElement('div');
+                                trDiv.style.cssText = "font-size: 11px; color: #64748b; margin-top: 2px; font-style: italic; border-top: 1px dashed rgba(100,116,139,0.2); padding-top: 2px;";
+                                trDiv.innerHTML = `🌐 [${res.detectedLang.toUpperCase()}] Перевод: ${res.translated}`;
+                                messageCell.appendChild(trDiv);
+                            }
+                        });
+                    }
+                }
+            });
+        }, { rootMargin: '100px 0px 100px 0px' });
+
+        function runChatTranslation() {
+            const chatHistoryBlock = Array.from(document.querySelectorAll('div, .card, .block')).find(el => el.innerText && el.innerText.includes('История Чата') && !el.innerText.includes('История Тикетов'));
+            if (!chatHistoryBlock) return;
+
+            const rows = Array.from(chatHistoryBlock.querySelectorAll('tbody tr, tr')).filter(row => row.querySelector('td'));
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length >= 4) {
+                    const messageCell = cells[3];
+                    if (!messageCell.dataset.translatedProcessed && !messageCell.dataset.observed) {
+                        messageCell.dataset.observed = "true";
+                        intersectionObserver.observe(messageCell);
+                    }
+                }
+            });
+        }
+
         function createPanel(templates, target, panelId) {
             const panel = document.createElement('div');
             panel.id = panelId;
@@ -454,7 +475,6 @@
                 btn.style.cssText = "background: #64748b; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 12px;";
                 btn.onclick = (e) => {
                     e.preventDefault();
-                    
                     const currentText = target.value.trim();
                     if (currentText === "") {
                         target.value = text;
@@ -463,7 +483,6 @@
                             target.value = currentText + " " + text;
                         }
                     }
-
                     target.dispatchEvent(new Event('input', { bubbles: true }));
                 };
                 panel.appendChild(btn);
@@ -476,7 +495,6 @@
                 copyBtn.onclick = (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    
                     let nickname = "";
 
                     const violatorLabel = Array.from(document.querySelectorAll('span, div, td'))
@@ -487,9 +505,7 @@
                         const playerCard = parent ? parent.querySelector('[data-player-card="true"]') : null;
                         if (playerCard) {
                             const nameSpan = playerCard.querySelector('button span, span');
-                            if (nameSpan) {
-                                nickname = nameSpan.innerText.trim();
-                            }
+                            if (nameSpan) { nickname = nameSpan.innerText.trim(); }
                         }
                     }
 
@@ -503,8 +519,7 @@
                     if (nickname) {
                         const el = document.createElement('textarea');
                         el.value = nickname;
-                        el.style.position = 'absolute';
-                        el.style.left = '-9999px';
+                        el.style.position = 'absolute'; el.style.left = '-9999px';
                         document.body.appendChild(el);
                         el.select();
                         try {
@@ -517,17 +532,19 @@
                                 copyBtn.style.background = "#475569";
                             }, 1500);
                         } catch (err) {
-                            console.error('Не вдалося скопіювати:', err);
+                            console.error('Не удалось скопировать:', err);
                         }
                         document.body.removeChild(el);
                     }
                 };
                 panel.appendChild(copyBtn);
             }
-
             return panel;
         }
 
+
+        //МОДИФИКАЦИЯ И ДИНАМИЧЕСКИЕ ОБНОВЛЕНИЯ DOM
+        
         function runDOMUpdates() {
             if (observer) observer.disconnect();
 
@@ -558,7 +575,6 @@
                             const panel = createPanel(templatesTicket, textarea, 'mod-ticket-panel');
                             textarea.parentNode.insertBefore(panel, textarea);
                         }
-
                         processTicketRules(textarea);
                     }
                 }
@@ -571,7 +587,6 @@
                     const match = fullText.match(/CYBERSHOKE:\s*(\d+)/i);
                     if (match) {
                         const hours = parseInt(match[1], 10);
-
                         if (hours < 50) {
                             const actionBtn = row.querySelector('button') || row.querySelector('a[href*="ticket"]');
                             if (actionBtn && !row.querySelector('.cs-new-badge')) {
@@ -591,6 +606,11 @@
             while (ipNode = treeWalkerIP.nextNode()) {
                 if (ipNode.nodeValue && ipRegex.test(ipNode.nodeValue)) {
                     const el = ipNode.parentElement;
+                    
+                    if (el && el.closest('div') && Array.from(el.closest('div').querySelectorAll('h3')).some(h3 => h3.textContent.trim() === 'Текущий сервер')) {
+                        continue;
+                    }
+
                     if (el && el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE' && !el.closest('.card') && !el.dataset.ipWrapperSetup) {
                         const ipMatch = ipNode.nodeValue.match(ipRegex);
                         if (!ipMatch) continue;
@@ -633,21 +653,13 @@
                         checkboxBadge.addEventListener('click', (e) => {
                             e.preventDefault();
                             e.stopPropagation();
-
                             const currentStatus = getStoredIPStatus(rawIp);
-
                             if (e.ctrlKey) {
-                                if (currentStatus === 'broken') {
-                                    setStoredIPStatus(rawIp, null);
-                                } else {
-                                    setStoredIPStatus(rawIp, 'broken');
-                                }
+                                if (currentStatus === 'broken') { setStoredIPStatus(rawIp, null); } 
+                                else { setStoredIPStatus(rawIp, 'broken'); }
                             } else {
-                                if (currentStatus === 'working') {
-                                    setStoredIPStatus(rawIp, null);
-                                } else {
-                                    setStoredIPStatus(rawIp, 'working');
-                                }
+                                if (currentStatus === 'working') { setStoredIPStatus(rawIp, null); } 
+                                else { setStoredIPStatus(rawIp, 'working'); }
                             }
                             updateVisuals();
                         });
@@ -662,12 +674,37 @@
             }
         }
 
+
+        //ГЛОБАЛЬНЫЕ СЛУШАТЕЛИ СОБЫТИЙ И ИНИЦИАЛИЗАЦИЯ НАБЛЮДАТЕЛЕЙ
+        
+        document.addEventListener('click', (event) => {
+            if (event.__isAutoRefresh) return;
+
+            const actionElement = event.target.closest('button') || event.target.closest('a');
+    
+            if (actionElement) {
+                const text = actionElement.innerText || "";
+                const classString = safeGetClassName(actionElement);
+
+                if (text.includes('Взять') || text.includes('Принять') || classString.includes('take-ticket')) {
+                    onTakeTicketOrReport();
+                }
+            }
+        });
+
         setInterval(() => {
             document.querySelectorAll('button').forEach(btn => {
-                if (btn.innerText && btn.innerText.includes('Обновить') && !btn.innerText.includes('Текущий сервер')) {
-                    btn.addEventListener('click', () => {
-                        setTimeout(runDOMUpdates, 500);
-                    });
+                if (btn.innerText && btn.innerText.includes('Обновить')) {
+                    const classString = safeGetClassName(btn);
+            
+                    if (!classString.includes('sc-bGaVTF') && !classString.includes('sc-hrJJYg')) {
+                        if (!btn.dataset.hasRefreshListener) {
+                            btn.dataset.hasRefreshListener = "true";
+                            btn.addEventListener('click', () => {
+                                setTimeout(runDOMUpdates, 500);
+                            });
+                        }
+                    }
                 }
             });
         }, 1000);
@@ -675,6 +712,8 @@
         observer = new MutationObserver(() => {
             runDOMUpdates();
         });
+        
+        startAutoRefreshTimer();
         runDOMUpdates();
     }
 })();
